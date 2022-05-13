@@ -1,63 +1,97 @@
-# hello
+# MLX90393
 
-## 1、介绍
+[中文页](README_ZH.md) | English
 
-> 说明：你需要在这里对项目进行简单的介绍，描述项目背景，当前现状、功能特点等等……
+## Introduction
 
-这是一个在 RT-Thread 上，用于演示的 package 。展示了一个 package 大致包括的内容，以及对应的一些模版文件。
+This software package is a universal sensor driver package for Melexis's Magnetic Position sensors, compatible with mpu6000, mpu6050, mpu6500, mpu9250, icm20608 and other sensors. And the new version of this software package has been connected to the Sensor framework, through the Sensor framework, developers can quickly drive this sensor. To view the README of the **old version of the package**, please click [here](README_OLD.md).
 
-### 1.1 目录结构
+## Support
 
-> 说明：参考下面表格，整理出 packages 的目录结构
+| Contains equipment          | Accelerometer | Gyroscope | Magnetometer |
+| --------------------------- | ------------- | --------- | ------------ |
+| **Communication Interface** |               |           |              |
+| IIC                         | √             | √         | √            |
+| SPI                         | √             | √         | √            |
+| **Work Mode**               |               |           |              |
+| Polling                     | √             | √         | √            |
+| Interruption                |               |           |              |
+| FIFO                        |               |           |              |
+| **Power Mode**              |               |           |              |
+| Power down                  | √             | √         | √            |
+| Low power consumption       |               |           |              |
+| Normal                      | √             | √         | √            |
+| High power consumption      |               |           |              |
+| **Data output rate**        |               |           |              |
+| **Measuring Range**         | √             | √         | √            |
+| **Self-check**              |               |           |              |
+| **Multi-instance**          |               |           |              |
 
-| 名称 | 说明 |
-| ---- | ---- |
-| docs  | 文档目录 |
-| examples | 例子目录，并有相应的一些说明 |
-| inc  | 头文件目录 |
-| src  | 源代码目录 |
-| port | 移植代码目录。如果没有移植代码，可以不需要 |
+## Instructions for use
 
-### 1.2 许可证
+### Dependence
 
-> 说明：请在这里说明该 package 的授权许可，例如： GPLv2、LGPLv2.1、MIT、Apache license v2.0、BSD 等。
+- RT-Thread 4.0.0+
+- Sensor component
+- IIC/SPI driver: mlx90393 devices use IIC/SPI for data communication, and need system IIC/SPI driver support;
 
-hello package 遵循 LGPLv2.1 许可，详见 `LICENSE` 文件。
+### Get the package
 
-### 1.3 依赖
-
-> 说明：列出该 package 对于其他 package 、RT-Thread 操作系统版本等软件方面的依赖关系。
-
-- RT-Thread 3.0+
-
-## 2、如何打开 hello
-
-> 说明：描述该 package 位于 menuconfig 的位置，并对与其相关的配置进行介绍
-
-使用 hello package 需要在 RT-Thread 的包管理器中选择它，具体路径如下：
+To use the MLX90393 software package, you need to select it in the RT-Thread package management. The specific path is as follows:
 
 ```
-RT-Thread online packages
-    miscellaneous packages --->
-        [*] A hello package
+RT-Thread online packages  --->
+  peripheral libraries and drivers  --->
+    sensors drivers  --->
+      mlx90393: Universal 3-axis sensor driver package,support: magnetometer.
+              Version (latest)  --->
+        [*]   Enable mlx90393 mag
 ```
 
-然后让 RT-Thread 的包管理器自动更新，或者使用 `pkgs --update` 命令更新包到 BSP 中。
+**Enable MLX90393 mag**: Configure to turn on the Magnetometer function
 
-## 3、使用 hello
+**Version**: software package version selection
 
-> 说明：在这里介绍 package 的移植步骤、使用方法、初始化流程、准备工作、API 等等，如果移植或 API 文档内容较多，可以将其独立至 `docs` 目录下。
+### Using packages
 
-在打开 hello package 后，当进行 bsp 编译时，它会被加入到 bsp 工程中进行编译。
+The initialization function of MLX90393 software package is as follows:
 
-* 完整的 API 手册可以访问这个[链接](docs/api.md)
-* 更多文档位于 [`/docs`](/docs) 下，使用前 **务必查看**
+```
+int rt_hw_mlx90393_init(const char *name, struct rt_sensor_config *cfg);
+```
 
-## 4、注意事项
+This function needs to be called by the user. The main functions of the function are:
 
-> 说明：列出在使用这个 package 过程中需要注意的事项；列出常见的问题，以及解决办法。
+- Device configuration and initialization (configure interface devices and interrupt pins according to the incoming configuration information);
+- Register the corresponding sensor device and complete the registration of the MLX90393 device;
 
-## 5、联系方式 & 感谢
+#### Initialization example
 
-* 维护：name
-* 主页：https://github.com/RT-Thread-packages/hello
+```
+#include "sensor_melexis_mlx90393.h"
+
+int rt_hw_mlx90393_port(void)
+{
+    struct rt_sensor_config cfg;
+    
+    cfg.intf.dev_name = "i2c1";
+    cfg.intf.user_data = (void *)MLX90393_ADDR_DEFAULT;
+    cfg.irq_pin.pin = RT_PIN_NONE;
+
+    rt_hw_mlx90393_init("mlx", &cfg);
+    return 0;
+}
+INIT_APP_EXPORT(rt_hw_mlx90393_port);
+```
+
+## Precautions
+
+No
+
+## contact information
+
+Maintenance man:
+
+- [lgnq](https://github.com/lgnq)
+
+- Homepage: <https://github.com/lgnq/mlx90393>
