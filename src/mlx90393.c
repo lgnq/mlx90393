@@ -11,13 +11,6 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 
-#include <string.h>
-#include <stdlib.h>
-
-#define DBG_TAG "mlx90393"
-#define DBG_LVL DBG_INFO
-#include <rtdbg.h>
-
 #include "mlx90393.h"
 
 rt_err_t mlx90393_i2c_cmd(struct mlx90393_device *dev, enum cmd c)
@@ -30,27 +23,27 @@ rt_err_t mlx90393_i2c_cmd(struct mlx90393_device *dev, enum cmd c)
     uint8_t write_buffer[10];
     uint8_t read_buffer[10];
 
-        write_buffer[0] = c;
+    write_buffer[0] = c;
 
-        msgs[0].addr  = dev->i2c_addr;    /* Slave address */
-        msgs[0].flags = RT_I2C_WR;        /* Write flag */
-        msgs[0].buf   = write_buffer;     /* Slave register address */
-        msgs[0].len   = 1;                /* Number of bytes sent */
+    msgs[0].addr  = dev->i2c_addr;    /* Slave address */
+    msgs[0].flags = RT_I2C_WR;        /* Write flag */
+    msgs[0].buf   = write_buffer;     /* Slave register address */
+    msgs[0].len   = 1;                /* Number of bytes sent */
 
-        msgs[1].addr  = dev->i2c_addr;    /* Slave address */
-        msgs[1].flags = RT_I2C_RD;        /* Read flag */
-        msgs[1].buf   = read_buffer;      /* Read data pointer */
-        msgs[1].len   = 1;                /* Number of bytes read */
+    msgs[1].addr  = dev->i2c_addr;    /* Slave address */
+    msgs[1].flags = RT_I2C_RD;        /* Read flag */
+    msgs[1].buf   = read_buffer;      /* Read data pointer */
+    msgs[1].len   = 1;                /* Number of bytes read */
 
-        if (rt_i2c_transfer((struct rt_i2c_bus_device *)dev->bus, msgs, 2) == 2)
-        {
-            //if (buf[0] == 0x00)
-            res = RT_EOK;
-        }
-        else
-        {
-            res = -RT_ERROR;
-        }
+    if (rt_i2c_transfer((struct rt_i2c_bus_device *)dev->bus, msgs, 2) == 2)
+    {
+        //if (buf[0] == 0x00)
+        res = RT_EOK;
+    }
+    else
+    {
+        res = -RT_ERROR;
+    }
 #endif
 
     return res;
@@ -427,6 +420,78 @@ rt_err_t mlx90393_read_measurement(struct mlx90393_device *dev, rt_int8_t zyxt, 
     return res;
 }
 
+/*
+    Temperature sensor resolution       = 45.2 LSB/C
+    Temperature sensor output at 25C    = 46244 LSB(16u)
+    MLX90393 datasheet page 12
+ */
+rt_int16_t mlx90393_convert_temperature(rt_uint16_t raw)
+{
+    float temperature;
+
+    temperature = 25 + (raw - 46244)/45.2;
+    rt_kprintf("t = %d.%d C\r\n", (int)temperature, ((int)(temperature*10))%10);
+}
+
+rt_err_t mlx90393_convert_measurement(struct mlx90393_device *dev, struct mlx90393_txyz txyz)
+{
+    mlx90393_resolution_t res_x = MLX90393_RES_18;
+    mlx90393_resolution_t res_y = MLX90393_RES_18;
+    mlx90393_resolution_t res_z = MLX90393_RES_18;
+
+    mlx90393_gain_t gain = 3;
+
+    float x, y, z;
+
+    mlx90393_get_resolution(dev, &res_x, &res_y, &res_z);
+
+    mlx90393_get_gain_sel(dev, &gain);
+
+    if (res_x == MLX90393_RES_18)
+    {
+        txyz.x -= 0x8000;
+        rt_kprintf("txyz.x - 0x8000 = 0x%x\r\n", txyz.x);
+    }
+
+    if (res_x == MLX90393_RES_19)
+    {
+        txyz.x -= 0x4000;
+        rt_kprintf("txyz.x - 0x4000 = 0x%x\r\n", txyz.x);
+    }
+
+    if (res_y == MLX90393_RES_18)
+    {
+        txyz.y -= 0x8000;
+        rt_kprintf("txyz.y - 0x8000 = 0x%x\r\n", txyz.y);
+    }
+
+    if (res_y == MLX90393_RES_19)
+    {
+        txyz.y -= 0x4000;
+        rt_kprintf("txyz.x - 0x4000 = 0x%x\r\n", txyz.y);
+    }
+
+    if (res_z == MLX90393_RES_18)
+    {
+        txyz.z -= 0x8000;
+        rt_kprintf("txyz.z - 0x8000 = 0x%x\r\n", txyz.z);
+    }
+
+    if (res_z == MLX90393_RES_19)
+    {
+        txyz.z -= 0x4000;
+        rt_kprintf("txyz.z - 0x4000 = 0x%x\r\n", txyz.z);
+    }
+
+    x = (float)txyz.x * mlx90393_lsb_lookup[0][gain][res_x][0];
+    y = (float)txyz.y * mlx90393_lsb_lookup[0][gain][res_y][0];
+    z = (float)txyz.z * mlx90393_lsb_lookup[0][gain][res_z][1];
+
+    // rt_kprintf("%.3f uT %.3f uT %.3f uT\r\n", x, y, z);
+    // rt_kprintf("0x%xuT 0x%xuT 0x%xuT\r\n", x, y, z);
+    rt_kprintf("%duT %duT %duT\r\n", (int)x, (int)y, (int)z);
+}
+
 /**
  * This function reads the value of register for mlx90393
  *
@@ -438,7 +503,7 @@ rt_err_t mlx90393_read_measurement(struct mlx90393_device *dev, rt_int8_t zyxt, 
  */
 static rt_err_t mlx90393_read_reg(struct mlx90393_device *dev, rt_uint8_t reg, rt_uint16_t *val)
 {
-    rt_int8_t res = 0;
+    rt_err_t res = 0;
     union mlx90393_status status;
 
 #ifdef RT_USING_I2C
@@ -465,12 +530,13 @@ static rt_err_t mlx90393_read_reg(struct mlx90393_device *dev, rt_uint8_t reg, r
 
         msgs[1].addr  = dev->i2c_addr;    /* Slave address */
         msgs[1].flags = RT_I2C_RD;        /* Read flag */
-        msgs[1].buf   = read_buffer;              /* Read data pointer */
+        msgs[1].buf   = read_buffer;      /* Read data pointer */
         msgs[1].len   = 3;                /* Number of bytes read */
 
         if (rt_i2c_transfer((struct rt_i2c_bus_device *)dev->bus, msgs, 2) == 2)
         {
             status.byte_val = read_buffer[0];
+            
             rt_kprintf("status = 0x%x\r\n", status.byte_val);
             rt_kprintf("[BIT7] BURST_MODE = 0x%x - MLX90393 works in Burst mode\r\n", status.burst_mode);
             rt_kprintf("[BIT6] WOC_MODE   = 0x%x - MLX90393 works in Wake On Change mode\r\n", status.woc_mode);
@@ -482,6 +548,7 @@ static rt_err_t mlx90393_read_reg(struct mlx90393_device *dev, rt_uint8_t reg, r
             rt_kprintf("[BIT0] D0         = 0x%x - The number of response bytes correspond to 2*D[1:0]+2\r\n\r\n", status.d0);
 
             *val = ((uint16_t)read_buffer[1])<<8 | read_buffer[2];
+
             res = RT_EOK;
         }
         else
@@ -514,7 +581,7 @@ static rt_err_t mlx90393_read_reg(struct mlx90393_device *dev, rt_uint8_t reg, r
  */
 static rt_err_t mlx90393_write_reg(struct mlx90393_device *dev, rt_uint8_t reg, rt_uint16_t data)
 {
-    rt_int8_t res = 0;
+    rt_err_t res = 0;
     union mlx90393_status status;
 
 #ifdef RT_USING_I2C
@@ -545,7 +612,16 @@ static rt_err_t mlx90393_write_reg(struct mlx90393_device *dev, rt_uint8_t reg, 
         if (rt_i2c_transfer((struct rt_i2c_bus_device *)dev->bus, msgs, 2) == 2)
         {
             status.byte_val = read_buffer;
-            rt_kprintf("status = 0x%x, BIT4(ERROR) = %d\r\n", status.byte_val, status.error);
+            
+            rt_kprintf("status = 0x%x\r\n", status.byte_val);
+            rt_kprintf("[BIT7] BURST_MODE = 0x%x - MLX90393 works in Burst mode\r\n", status.burst_mode);
+            rt_kprintf("[BIT6] WOC_MODE   = 0x%x - MLX90393 works in Wake On Change mode\r\n", status.woc_mode);
+            rt_kprintf("[BIT5] SM_MODE    = 0x%x - MLX90393 works in Single measurement mode\r\n", status.sm_mode);
+            rt_kprintf("[BIT4] ERROR      = 0x%x - ECC_ERROR or command is rejected\r\n", status.error);
+            rt_kprintf("[BIT3] SED        = 0x%x - a bit error in the non-volatile memory has been corrected\r\n", status.sed);
+            rt_kprintf("[BIT2] RS         = 0x%x - Reset bit\r\n", status.rs);
+            rt_kprintf("[BIT1] D1         = 0x%x - The number of response bytes correspond to 2*D[1:0]+2\r\n", status.d1);
+            rt_kprintf("[BIT0] D0         = 0x%x - The number of response bytes correspond to 2*D[1:0]+2\r\n\r\n", status.d0);
 
             res = RT_EOK;
         }
@@ -731,32 +807,64 @@ rt_err_t mlx90393_reset(struct mlx90393_device *dev)
     return res;
 }
 
-uint8_t mlx90393_set_hallconf(struct mlx90393_device *dev, uint8_t hallconf)
+rt_err_t mlx90393_set_hallconf(struct mlx90393_device *dev, uint8_t hallconf)
 {
+    rt_err_t res = 0;
+
     uint16_t register_val;
     union mlx90393_register0 reg;
 
-    uint8_t status1 = mlx90393_read_reg(dev, 0, &register_val);
+    res = mlx90393_read_reg(dev, 0, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
     reg.word_val = register_val;
     reg.hallconf = hallconf;
-    uint8_t status2 = mlx90393_write_reg(dev, 0, reg.word_val);
-
-    return (status1) | (status2);
+    res = mlx90393_write_reg(dev, 0, reg.word_val);
+    if (res == -RT_ERROR)
+        return res;
+        
+    return res;
 }
 
-uint8_t mlx90393_set_gain_sel(struct mlx90393_device *dev, uint8_t gain)
+rt_err_t mlx90393_set_gain_sel(struct mlx90393_device *dev, mlx90393_gain_t gain)
 {
+    rt_err_t res = 0;
+
     uint16_t register_val;
     union mlx90393_register0 reg;
 
-    uint8_t status1 = mlx90393_read_reg(dev, 0, &register_val);
-    reg.word_val = register_val;
-    rt_kprintf("reg0 = 0x%x\r\n", reg.word_val);
-    reg.gain_sel = gain;
-    rt_kprintf("reg0 = 0x%x\r\n", reg.word_val);
-    uint8_t status2 = mlx90393_write_reg(dev, 0, reg.word_val);
+    res = mlx90393_read_reg(dev, 0, &register_val);
+    if (res == -RT_ERROR)
+        return res;
 
-    return (status1) | (status2);
+    reg.word_val = register_val;
+    reg.gain_sel = gain;
+    
+    res = mlx90393_write_reg(dev, 0, reg.word_val);
+    if (res == -RT_ERROR)
+        return res;
+
+    return res;
+}
+
+rt_err_t mlx90393_get_gain_sel(struct mlx90393_device *dev, mlx90393_gain_t *gain)
+{
+    rt_err_t res = 0;
+
+    uint16_t register_val;
+    union mlx90393_register0 reg;
+
+    res = mlx90393_read_reg(dev, 0, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
+    reg.word_val = register_val;
+    *gain = reg.gain_sel;
+    
+    rt_kprintf("gain = 0x%x\r\n", *gain);
+
+    return res;
 }
 
 uint8_t mlx90393_set_burst_sel(struct mlx90393_device *dev, uint8_t burst_sel)
@@ -811,45 +919,122 @@ uint8_t mlx90393_set_temperature_compensation(struct mlx90393_device *dev, uint8
     return (status1) | (status2);
 }
 
-uint8_t mlx90393_set_resolution(struct mlx90393_device *dev, uint8_t res_x, uint8_t res_y, uint8_t res_z)
+rt_err_t mlx90393_set_resolution(struct mlx90393_device *dev, mlx90393_resolution_t res_x, mlx90393_resolution_t res_y, mlx90393_resolution_t res_z)
 {
+    rt_err_t res = 0;
+
     uint16_t register_val;
     union mlx90393_register2 reg;
 
-    uint8_t status1 = mlx90393_read_reg(dev, 2, &register_val);
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
     reg.word_val = register_val;
     reg.res_x = res_x;
     reg.res_y = res_y;
     reg.res_z = res_z;
-    uint8_t status2 = mlx90393_write_reg(dev, 2, reg.word_val);
+    
+    res = mlx90393_write_reg(dev, 2, reg.word_val);
+    if (res == -RT_ERROR)
+        return res;
 
-    return (status1) | (status2);
+    return res;
 }
 
-uint8_t mlx90393_set_oversampling(struct mlx90393_device *dev, uint8_t osr)
+rt_err_t mlx90393_get_resolution(struct mlx90393_device *dev, mlx90393_resolution_t *res_x, mlx90393_resolution_t *res_y, mlx90393_resolution_t *res_z)
 {
+    rt_err_t res = 0;
+
     uint16_t register_val;
     union mlx90393_register2 reg;
 
-    uint8_t status1 = mlx90393_read_reg(dev, 2, &register_val);
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
+    reg.word_val = register_val;
+    *res_x = reg.res_x;
+    *res_y = reg.res_y;
+    *res_z = reg.res_z;
+    
+    rt_kprintf("res_x = 0x%x, res_y = 0x%x, res_z = 0x%x\r\n", *res_x, *res_y, *res_z);
+
+    return res;
+}
+
+rt_err_t mlx90393_set_oversampling(struct mlx90393_device *dev, mlx90393_oversampling_t osr)
+{
+    rt_err_t res = 0;
+
+    uint16_t register_val;
+    union mlx90393_register2 reg;
+
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
     reg.word_val = register_val;
     reg.osr = osr;
-    uint8_t status2 = mlx90393_write_reg(dev, 2, reg.word_val);
+    res = mlx90393_write_reg(dev, 2, reg.word_val);
+    if (res == -RT_ERROR)
+        return res;
 
-    return (status1) | (status2);
+    return res;
 }
 
-uint8_t mlx90393_set_digital_filtering(struct mlx90393_device *dev, uint8_t dig_filt)
+rt_err_t mlx90393_get_oversampling(struct mlx90393_device *dev, mlx90393_oversampling_t *osr)
 {
+    rt_err_t res = 0;
+
     uint16_t register_val;
     union mlx90393_register2 reg;
 
-    uint8_t status1 = mlx90393_read_reg(dev, 2, &register_val);
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
+    reg.word_val = register_val;
+    *osr = reg.osr;
+        
+    return res;
+}
+
+rt_err_t mlx90393_set_digital_filtering(struct mlx90393_device *dev, mlx90393_filter_t dig_filt)
+{
+    rt_err_t res = 0;
+
+    uint16_t register_val;
+    union mlx90393_register2 reg;
+
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
     reg.word_val = register_val;
     reg.dig_filt = dig_filt;
-    uint8_t status2 = mlx90393_write_reg(dev, 2, reg.word_val);
+    res = mlx90393_write_reg(dev, 2, reg.word_val);
+    if (res == -RT_ERROR)
+        return res;
 
-    return (status1) | (status2);
+    return res;
+}
+
+rt_err_t mlx90393_get_digital_filtering(struct mlx90393_device *dev, mlx90393_filter_t *dig_filt)
+{
+    rt_err_t res = 0;
+
+    uint16_t register_val;
+    union mlx90393_register2 reg;
+
+    res = mlx90393_read_reg(dev, 2, &register_val);
+    if (res == -RT_ERROR)
+        return res;
+
+    reg.word_val = register_val;
+    *dig_filt = reg.dig_filt;
+
+    return res;
 }
 
 uint8_t mlx90393_set_offset_x(struct mlx90393_device *dev, uint16_t offset)
@@ -1066,36 +1251,6 @@ rt_err_t mlx90393_set_param(struct mlx90393_device *dev, enum mlx90393_cmd cmd, 
 }
 
 /**
- * This function gets the data of the gyroscope, unit: deg/10s
- * Here deg/10s means 10 times higher precision than deg/s.
- *
- * @param dev the pointer of device driver structure
- * @param gyro the pointer of 3axes structure for receive data
- *
- * @return the reading status, RT_EOK reprensents  reading the data successfully.
- */
-//rt_err_t mlx90393_get_gyro(struct mlx90393_device *dev, struct mlx90393_3axes *gyro)
-//{
-//    struct mlx90393_3axes tmp;
-//    rt_uint16_t sen;
-//    rt_err_t res;
-//
-//    res = mlx90393_get_gyro_raw(dev, &tmp);
-//    if (res != RT_EOK)
-//    {
-//        return res;
-//    }
-//
-////    sen = MPU6XXX_GYRO_SEN >> dev->config.gyro_range;
-////
-////    gyro->x = (rt_int32_t)tmp.x * 100 / sen;
-////    gyro->y = (rt_int32_t)tmp.y * 100 / sen;
-////    gyro->z = (rt_int32_t)tmp.z * 100 / sen;
-//
-//    return RT_EOK;
-//}
-
-/**
  * This function initialize the mlx90393 device.
  *
  * @param dev_name the name of transfer device
@@ -1114,19 +1269,20 @@ struct mlx90393_device *mlx90393_init(const char *dev_name, rt_uint8_t param)
     dev = rt_calloc(1, sizeof(struct mlx90393_device));
     if (dev == RT_NULL)
     {
-        LOG_E("Can't allocate memory for mlx90393 device on '%s' ", dev_name);
+        rt_kprintf("Can't allocate memory for mlx90393 device on '%s' ", dev_name);
         goto __exit;
     }
 
     dev->bus = rt_device_find(dev_name);
     if (dev->bus == RT_NULL)
     {
-        LOG_E("Can't find device:'%s'", dev_name);
+        rt_kprintf("Can't find device:'%s'", dev_name);
         goto __exit;
     }
 
     if (dev->bus->type == RT_Device_Class_I2CBUS)
     {
+#ifdef RT_USING_I2C
         if (param != RT_NULL)
         {
             dev->i2c_addr = param;
@@ -1135,18 +1291,19 @@ struct mlx90393_device *mlx90393_init(const char *dev_name, rt_uint8_t param)
         {
             /* find mlx90393 device at address: 0x19 */
             dev->i2c_addr = MLX90393_I2C_ADDRESS;
-            // if (mlx90393_read_regs(dev, MPU6XXX_RA_WHO_AM_I, 1, &reg) != RT_EOK)
+            // if (mlx90393_read_reg(dev, MPU6XXX_RA_WHO_AM_I, 1, &reg) != RT_EOK)
             // {
             //     /* find mlx90393 device at address 0x19 */
             //     dev->i2c_addr = MPU6XXX_ADDRESS_AD0_HIGH;
             //     if (mlx90393_read_regs(dev, MPU6XXX_RA_WHO_AM_I, 1, &reg) != RT_EOK)
             //     {
-            //         LOG_E("Can't find device at '%s'!", dev_name);
+            //         rt_kprintf("Can't find device at '%s'!", dev_name);
             //         goto __exit;
             //     }
             // }
-            LOG_D("Device i2c address is:'0x%x'!", dev->i2c_addr);
+            rt_kprintf("Device i2c address is:'0x%x'!\r\n", dev->i2c_addr);
         }
+#endif        
     }
     else if (dev->bus->type == RT_Device_Class_SPIDevice)
     {
@@ -1162,45 +1319,17 @@ struct mlx90393_device *mlx90393_init(const char *dev_name, rt_uint8_t param)
     }
     else
     {
-        LOG_E("Unsupported device:'%s'!", dev_name);
+        rt_kprintf("Unsupported device:'%s'!", dev_name);
         goto __exit;
     }
 
-    // if (mlx90393_read_regs(dev, MPU6XXX_RA_WHO_AM_I, 1, &reg) != RT_EOK)
-    // {
-    //     LOG_E("Failed to read device id!");
-    //     goto __exit;
-    // }
-
-    // dev->id = reg;
-
-    // switch (dev->id)
-    // {
-    // case MPU6050_WHO_AM_I:
-    //     LOG_I("Find device: mpu6050!");
-    //     break;
-    // case 0xFF:
-    //     LOG_E("No device connection!");
-    //     goto __exit;
-    // default:
-    //     LOG_W("Unknown device id: 0x%x!", reg);
-    // }
-
-    // res += mpu6xxx_get_param(dev, MPU6XXX_ACCEL_RANGE, &dev->config.accel_range);
-    // res += mpu6xxx_get_param(dev, MPU6XXX_GYRO_RANGE, &dev->config.gyro_range);
-
-    // res += mpu6xxx_write_bits(dev, MPU6XXX_RA_PWR_MGMT_1, MPU6XXX_PWR1_CLKSEL_BIT, MPU6XXX_PWR1_CLKSEL_LENGTH, MPU6XXX_CLOCK_PLL_XGYRO);
-    // res += mpu6xxx_set_param(dev, MPU6XXX_GYRO_RANGE, MPU6XXX_GYRO_RANGE_250DPS);
-    // res += mpu6xxx_set_param(dev, MPU6XXX_ACCEL_RANGE, MPU6XXX_ACCEL_RANGE_2G);
-    // res += mpu6xxx_set_param(dev, MPU6XXX_SLEEP, MPU6XXX_SLEEP_DISABLE);
-
     if (res == RT_EOK)
     {
-        LOG_I("Device init succeed!");
+        rt_kprintf("Device init succeed!\r\n");
     }
     else
     {
-        LOG_W("Error in device initialization!");
+        rt_kprintf("Error in device initialization!\r\n");
     }
     return dev;
 
@@ -1246,7 +1375,7 @@ static void mlx90393(int argc, char **argv)
         rt_kprintf("                               var = 0 means disable, = 1 means enable\n");
         rt_kprintf("         read [num]            read [num] times mlx90393\n");
         rt_kprintf("                               num default 5\n");
-        return ;
+        return;
     }
     else
     {
@@ -1265,7 +1394,7 @@ static void mlx90393(int argc, char **argv)
         else if (dev == RT_NULL)
         {
             rt_kprintf("Please probe mlx90393 first!\n");
-            return ;
+            return;
         }
         else if (!strcmp(argv[1], "rt"))
         {
@@ -1295,15 +1424,30 @@ static void mlx90393(int argc, char **argv)
                 break;
             case 1:
                 reg1.word_val = register_val;
-                rt_kprintf("REG[1] = 0x%x, BURST_DATA_RATE = 0x%x, BURST_SEL = 0x%x, TCMP_EN = 0x%x, EXT_TRG = 0x%x, WOC_DIFF = 0x%x, COMM_MODE = 0x%x, TRIG_INT = 0x%x\r\n", reg1.word_val, reg1.burst_data_rate, reg1.burst_sel, reg1.tcmp_en, reg1.ext_trg, reg1.woc_diff, reg1.comm_mode, reg1.trig_int);
+                rt_kprintf("REG[1] = 0x%x\r\n", reg1.word_val);
+                rt_kprintf("[BIT0-5] BURST_DATA_RATE = 0x%x - Defines TINTERVAL as BURST_DATA_RATE * 20ms\r\n", reg1.burst_data_rate);
+                rt_kprintf("[BIT6-9] BURST_SEL       = 0x%x - Defines the MDATA in burst mode if SB command argument = 0\r\n", reg1.burst_sel);
+                rt_kprintf("[BITA-A] TCMP_EN         = 0x%x - Enables on-chip sensitivity drift compensation\r\n", reg1.tcmp_en);
+                rt_kprintf("[BITB-B] EXT_TRG         = 0x%x - Allows external trigger inputs when set, if TRIG_INT_SEL = 0\r\n", reg1.ext_trg);
+                rt_kprintf("[BITC-C] WOC_DIFF        = 0x%x - Sets the Wake-up On Change based on Δ{sample(t),sample(t-1)}\r\n", reg1.woc_diff);
+                rt_kprintf("[BITD-E] COMM_MODE       = 0x%x - Allow only SPI [10b], only I2C [11b] or both [0Xb] according to CS pin\r\n", reg1.comm_mode);
+                rt_kprintf("[BITF-F] TRIG_INT        = 0x%x - Puts TRIG_INT pin in TRIG mode when cleared, INT mode otherwise\r\n", reg1.trig_int);
                 break;
             case 2:
                 reg2.word_val = register_val;
-                rt_kprintf("REG[2] = 0x%x, OSR = 0x%x, DIG_FILT = 0x%x, RES_X = 0x%x, RES_Y = 0x%x, RES_Z = 0x%x, OSR2 = 0x%x\r\n", reg2.word_val, reg2.osr, reg2.dig_filt, reg2.res_x, reg2.res_y, reg2.res_z, reg2.osr2);
+                rt_kprintf("REG[2] = 0x%x\r\n", reg2.word_val);
+                rt_kprintf("[BIT0-1] OSR      = 0x%x - Magnetic sensor ADC oversampling ratio\r\n", reg2.osr);
+                rt_kprintf("[BIT2-4] DIG_FILT = 0x%x - Digital filter applicable to ADC\r\n", reg2.dig_filt);
+                rt_kprintf("[BIT5-6] RES_X    = 0x%x - Selects the desired 16-bit output value from the 19-bit ADC\r\n", reg2.res_x);
+                rt_kprintf("[BIT7-8] RES_Y    = 0x%x - Selects the desired 16-bit output value from the 19-bit ADC\r\n", reg2.res_y);
+                rt_kprintf("[BIT9-A] RES_Z    = 0x%x - Selects the desired 16-bit output value from the 19-bit ADC\r\n", reg2.res_z);
+                rt_kprintf("[BITB-C] OSR_2    = 0x%x - Temperature sensor ADC oversampling ratio\r\n", reg2.osr2);
                 break;
             case 3:
                 reg3.word_val = register_val;
-                rt_kprintf("REG[3] = 0x%x, SENS_TC_LT = 0x%x, SENS_TC_HT = 0x%x\r\n", reg3.word_val, reg3.sens_tc_lt, reg3.sens_tc_ht);
+                rt_kprintf("REG[3] = 0x%x\r\n", reg3.word_val);
+                rt_kprintf("[BIT0-7] SENS_TC_LT = 0x%x - Sensitivity drift compensation factor for T > TREF\r\n", reg3.sens_tc_lt);
+                rt_kprintf("[BIT8-F] SENS_TC_HT = 0x%x - Sensitivity drift compensation factor for T < TREF\r\n", reg3.sens_tc_ht);
                 break;
             default:
                 rt_kprintf("REG[%d] = 0x%x\r\n", atoi(argv[2]), register_val);
@@ -1314,6 +1458,48 @@ static void mlx90393(int argc, char **argv)
         {
             mlx90393_write_reg(dev, atoi(argv[2]), atoi(argv[3]));
         }
+        else if (!strcmp(argv[1], "sm"))
+        {
+            mlx90393_start_measurement(dev, X_FLAG | Y_FLAG | Z_FLAG | T_FLAG);
+        }        
+        else if (!strcmp(argv[1], "rm"))
+        {
+            struct mlx90393_txyz txyz;
+
+            mlx90393_start_measurement(dev, X_FLAG | Y_FLAG | Z_FLAG | T_FLAG);
+            
+            // rt_thread_delay(mlx90393_tconv[_dig_filt][_osr] + 10);
+            rt_thread_delay(mlx90393_tconv[0][0] + 10);
+
+            mlx90393_read_measurement(dev, X_FLAG | Y_FLAG | Z_FLAG | T_FLAG, &txyz);
+
+            mlx90393_convert_temperature(txyz.t);
+            mlx90393_convert_measurement(dev, txyz);
+        }                
+        else if (!strcmp(argv[1], "set_gain"))
+        {
+            mlx90393_set_gain_sel(dev, atoi(argv[2]));
+        }                
+        else if (!strcmp(argv[1], "get_gain"))
+        {
+            mlx90393_gain_t gain;
+
+            mlx90393_get_gain_sel(dev, &gain);
+            rt_kprintf("gain is 0x%x\r\n", gain);
+        }                                
+        else if (!strcmp(argv[1], "set_resolution"))
+        {
+            mlx90393_set_resolution(dev, atoi(argv[2]), atoi(argv[3]), atoi(argv[4]));
+        }                
+        else if (!strcmp(argv[1], "get_resolution"))
+        {
+            mlx90393_resolution_t x;
+            mlx90393_resolution_t y;
+            mlx90393_resolution_t z;
+
+            mlx90393_get_resolution(dev, &x, &y, &z);
+            rt_kprintf("resolution is 0x%x 0x%x 0x%x\r\n", x, y, z);
+        }                                        
         else if (!strcmp(argv[1], "setup"))
         {
             mlx90393_setup(dev);
@@ -1329,6 +1515,11 @@ static void mlx90393(int argc, char **argv)
         }
     }
 }
+#ifdef RT_USING_FINSH
+#include <finsh.h>
+FINSH_FUNCTION_EXPORT(mlx90393, mlx90393 sensor function);    
+#endif
+
 #ifdef FINSH_USING_MSH
     MSH_CMD_EXPORT(mlx90393, mlx90393 sensor function);
 #endif
