@@ -208,8 +208,8 @@ int rt_hw_mlx90393_init(const char *name, struct rt_sensor_config *cfg)
         if (sensor_mps == RT_NULL)
             goto __exit;
 
-        sensor_mps->info.type       = RT_SENSOR_CLASS_MPS;
-        sensor_mps->info.vendor     = RT_SENSOR_VENDOR_MELEXIS;
+        sensor_mps->info.type       = RT_SENSOR_CLASS_MAG;
+        sensor_mps->info.vendor     = RT_SENSOR_VENDOR_UNKNOWN;
         sensor_mps->info.model      = "mlx90393";
         sensor_mps->info.unit       = RT_SENSOR_UNIT_MG;
         sensor_mps->info.intf_type  = RT_SENSOR_INTF_I2C;
