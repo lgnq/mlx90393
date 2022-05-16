@@ -27,7 +27,7 @@ static rt_err_t _mlx90393_set_range(rt_sensor_t sensor, rt_int32_t range)
 {
 //    if (sensor->info.type == RT_SENSOR_CLASS_ACCE)
 //    {
-//        uint8_t range_ctr;
+//        rt_uint8_t range_ctr;
 //
 //        if (range < 2000)
 //            range_ctr = MPU6XXX_ACCEL_RANGE_2G;
@@ -44,7 +44,7 @@ static rt_err_t _mlx90393_set_range(rt_sensor_t sensor, rt_int32_t range)
 //    }
 //    else if (sensor->info.type == RT_SENSOR_CLASS_GYRO)
 //    {
-//        uint8_t range_ctr;
+//        rt_uint8_t range_ctr;
 //
 //        if (range < 250000UL)
 //            range_ctr = MPU6XXX_GYRO_RANGE_250DPS;
@@ -78,7 +78,7 @@ static rt_err_t _mlx90393_acc_set_mode(rt_sensor_t sensor, rt_uint8_t mode)
 
 static rt_err_t _mlx90393_set_power(rt_sensor_t sensor, rt_uint8_t power)
 {
-    static uint8_t ref_count = 0;
+    static rt_uint8_t ref_count = 0;
 
     if (power == RT_SENSOR_POWER_DOWN)
     {
@@ -155,7 +155,7 @@ static rt_err_t mlx90393_control(struct rt_sensor_device *sensor, int cmd, void 
     switch (cmd)
     {
     case RT_SENSOR_CTRL_GET_ID:
-        *(uint8_t *)args = mlx_dev->id;
+        *(rt_uint8_t *)args = mlx_dev->id;
         break;
     case RT_SENSOR_CTRL_SET_RANGE:
         result = _mlx90393_set_range(sensor, (rt_int32_t)args);
