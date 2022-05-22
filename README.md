@@ -4,28 +4,28 @@
 
 ## Introduction
 
-This software package is a universal sensor driver package for Melexis's Magnetic Position sensors, compatible with mpu6000, mpu6050, mpu6500, mpu9250, icm20608 and other sensors. And the new version of this software package has been connected to the Sensor framework, through the Sensor framework, developers can quickly drive this sensor. To view the README of the **old version of the package**, please click [here](README_OLD.md).
+This software package is a universal sensor driver package for Melexis's Magnetic Position sensors, compatible with mlx90393. And the new version of this software package has been connected to the Sensor framework, through the Sensor framework, developers can quickly drive this sensor. To view the README of the **old version of the package**, please click [here](README_OLD.md).
 
 ## Support
 
-| Contains equipment          | Accelerometer | Gyroscope | Magnetometer |
-| --------------------------- | ------------- | --------- | ------------ |
-| **Communication Interface** |               |           |              |
-| IIC                         | √             | √         | √            |
-| SPI                         | √             | √         | √            |
-| **Work Mode**               |               |           |              |
-| Polling                     | √             | √         | √            |
-| Interruption                |               |           |              |
-| FIFO                        |               |           |              |
-| **Power Mode**              |               |           |              |
-| Power down                  | √             | √         | √            |
-| Low power consumption       |               |           |              |
-| Normal                      | √             | √         | √            |
-| High power consumption      |               |           |              |
-| **Data output rate**        |               |           |              |
-| **Measuring Range**         | √             | √         | √            |
-| **Self-check**              |               |           |              |
-| **Multi-instance**          |               |           |              |
+| Contains equipment          | Magnetometer |
+| --------------------------- | ------------ |
+| **Communication Interface** |              |
+| IIC                         | √            |
+| SPI                         | √            |
+| **Work Mode**               |              |
+| Polling                     | √            |
+| Interruption                |              |
+| FIFO                        |              |
+| **Power Mode**              |              |
+| Power down                  | √            |
+| Low power consumption       |              |
+| Normal                      | √            |
+| High power consumption      |              |
+| **Data output rate**        |              |
+| **Measuring Range**         | √            |
+| **Self-check**              |              |
+| **Multi-instance**          |              |
 
 ## Instructions for use
 
