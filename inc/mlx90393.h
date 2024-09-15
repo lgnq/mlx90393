@@ -12,6 +12,7 @@
 #define __MLX90393_H__
 
 #include <rtthread.h>
+#include <rtdevice.h>
 
 #define A0  0
 #define A1  0
@@ -67,7 +68,7 @@ enum cmd
     CMD_RESET             = 0xf0
 };
 
-enum
+typedef enum
 {
     Z_FLAG = 0x8,
     Y_FLAG = 0x4,
@@ -75,32 +76,30 @@ enum
     T_FLAG = 0x1
 } axis_flag_t;
 
-/* Accelerometer full scale range */
-enum mlx90393_accel_range
+/* Magnetometer full scale range */
+enum mlx90393_magneto_range
 {
-    MPU6XXX_ACCEL_RANGE_2G  = 0, // ±2G
-    MPU6XXX_ACCEL_RANGE_4G  = 1, // ±4G
-    MPU6XXX_ACCEL_RANGE_8G  = 2, // ±8G
-    MPU6XXX_ACCEL_RANGE_16G = 3  // ±16G
+    MLX90393_MAGNETO_RANGE_5UT  = 0, 
+    MLX90393_MAGNETO_RANGE_10UT = 1, 
+    MLX90393_MAGNETO_RANGE_20UT = 2, 
+    MLX90393_MAGNETO_RANGE_50UT = 3  
 };
-
 /* sleep mode parameters */
 enum mlx90393_sleep
 {
-    MPU6XXX_SLEEP_DISABLE = 0,
-    MPU6XXX_SLEEP_ENABLE  = 1
+    MLX90393_SLEEP_DISABLE = 0,
+    MLX90393_SLEEP_ENABLE  = 1
 };
 
 /* Supported configuration items */
 enum mlx90393_cmd
 {
-    MPU6XXX_GYRO_RANGE,  /* Gyroscope full scale range */
-    MPU6XXX_ACCEL_RANGE, /* Accelerometer full scale range */
-    MPU6XXX_DLPF_CONFIG, /* Digital Low Pass Filter */
-    MPU6XXX_SAMPLE_RATE, /* Sample Rate —— 16-bit unsigned value.
+    MLX90393_MAGNETO_GATE, /* Magnetometer gate */
+    MLX90393_DLPF_CONFIG, /* Digital Low Pass Filter */
+    MLX90393_SAMPLE_RATE, /* Sample Rate —— 16-bit unsigned value.
                             Sample Rate = [1000 -  4]HZ when dlpf is enable
                             Sample Rate = [8000 - 32]HZ when dlpf is disable */
-    MPU6XXX_SLEEP        /* Sleep mode */
+    MLX90393_SLEEP        /* Sleep mode */
 };
 
 /** HALLCONF settings for CONF1 register. */
@@ -308,75 +307,16 @@ void mlx90393_deinit(struct mlx90393_device *dev);
  */
 rt_err_t mlx90393_set_param(struct mlx90393_device *dev, enum mlx90393_cmd cmd, rt_uint16_t param);
 
+
 /**
 * This function gets the data of the mps, unit: mg
  *
  * @param dev the pointer of device driver structure
- * @param mps the pointer of 3axes structure for receive data
+ * @param mps the pointer of txyz structure for receive data
  *
  * @return the reading status, RT_EOK reprensents  reading the data successfully.
  */
-rt_err_t mlx90393_get_mps(struct mlx90393_device *dev, struct mlx90393_3axes *accel);
-
-/**
-* This function gets the data of the gyroscope, unit: deg/10s
- *
- * @param dev the pointer of device driver structure
- * @param gyro the pointer of 3axes structure for receive data
- *
- * @return the reading status, RT_EOK reprensents  reading the data successfully.
- */
-rt_err_t mlx90393_get_gyro(struct mlx90393_device *dev, struct mlx90393_3axes *gyro);
-
-/**
- * This function gets the data of the temperature, unit: Centigrade
- *
- * @param dev the pointer of device driver structure
- * @param temp read data pointer
- *
- * @return the reading status, RT_EOK reprensents  reading the data successfully.
- */
-rt_err_t mlx90393_get_temp(struct mlx90393_device *dev, float *temp);
-
-/**
-* This function sets the offset of the accelerometer
- *
- * @param dev the pointer of device driver structure
- * @param offset the pointer of 3axes structure of offsets
- *
- * @return the setting status, RT_EOK reprensents setting the offsets successfully.
- */
-rt_err_t mlx90393_set_accel_offset(struct mlx90393_device *dev, struct mlx90393_3axes *offset);
-
-/**
-* This function gets the offset of the accelerometer
- *
- * @param dev the pointer of device driver structure
- * @param offset the pointer of 3axes structure of offsets
- *
- * @return the setting status, RT_EOK reprensents reading the offsets successfully.
- */
-rt_err_t mlx90393_get_accel_offset(struct mlx90393_device *dev, struct mlx90393_3axes *offset);
-
-/**
-* This function sets the offset of the gyroscope
- *
- * @param dev the pointer of device driver structure
- * @param offset the pointer of 3axes structure of offsets
- *
- * @return the setting status, RT_EOK reprensents setting the offsets successfully.
- */
-rt_err_t mlx90393_set_gyro_offset(struct mlx90393_device *dev, struct mlx90393_3axes *offset);
-
-/**
-* This function gets the offset of the gyroscope
- *
- * @param dev the pointer of device driver structure
- * @param offset the pointer of 3axes structure of offsets
- *
- * @return the setting status, RT_EOK reprensents reading the offsets successfully.
- */
-rt_err_t mlx90393_get_gyro_offset(struct mlx90393_device *dev, struct mlx90393_3axes *offset);
+rt_err_t mlx90393_get_txyz_raw(struct mlx90393_device *dev, struct mlx90393_txyz *txyz);
 
 rt_err_t mlx90393_nop(struct mlx90393_device *dev);
 rt_err_t mlx90393_exit(struct mlx90393_device *dev);

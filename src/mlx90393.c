@@ -9,7 +9,7 @@
  */
 
 #include <rtthread.h>
-#include <rtdevice.h>
+
 
 #include "mlx90393.h"
 
@@ -699,10 +699,10 @@ void mlx90393_setup(struct mlx90393_device *dev)
  *
  * @return the reading status, RT_EOK represents  reading the data successfully.
  */
-static rt_err_t mlx90393_get_txyz_raw(struct mlx90393_device *dev, struct mlx90393_txyz *txyz)
+rt_err_t mlx90393_get_txyz_raw(struct mlx90393_device *dev, struct mlx90393_txyz *txyz)
 {
     rt_uint8_t status = mlx90393_start_measurement(dev, X_FLAG | Y_FLAG | Z_FLAG | T_FLAG);
-
+    rt_thread_delay(mlx90393_tconv[0][0] + 10);
     // wait for DRDY signal if connected, otherwise delay appropriately
 //    if (DRDY_pin >= 0)
 //    {
@@ -797,54 +797,15 @@ rt_err_t mlx90393_set_param(struct mlx90393_device *dev, enum mlx90393_cmd cmd, 
 
     RT_ASSERT(dev);
 
-    // switch (cmd)
-    // {
-    // case MPU6XXX_GYRO_RANGE:  /* Gyroscope full scale range */
-    //     res = mpu6xxx_write_bits(dev, MPU6XXX_RA_GYRO_CONFIG, MPU6XXX_GCONFIG_FS_SEL_BIT, MPU6XXX_GCONFIG_FS_SEL_LENGTH, param);
-    //     dev->config.gyro_range = param;
-    //     break;
-    // case MPU6XXX_ACCEL_RANGE: /* Accelerometer full scale range */
-    //     res = mpu6xxx_write_bits(dev, MPU6XXX_RA_ACCEL_CONFIG, MPU6XXX_ACONFIG_AFS_SEL_BIT, MPU6XXX_ACONFIG_AFS_SEL_LENGTH, param);
-    //     dev->config.accel_range = param;
-    //     break;
-    // case MPU6XXX_DLPF_CONFIG: /* Digital Low Pass Filter */
-    //     res = mpu6xxx_write_bits(dev, MPU6XXX_RA_CONFIG, MPU6XXX_CFG_DLPF_CFG_BIT, MPU6XXX_CFG_DLPF_CFG_LENGTH, param);
-    //     break;
-    // case MPU6XXX_SAMPLE_RATE: /* Sample Rate = 16-bit unsigned value.
-    //                              Sample Rate = [1000 -  4]HZ when dlpf is enable
-    //                              Sample Rate = [8000 - 32]HZ when dlpf is disable */
-
-    //     //Sample Rate = Gyroscope Output Rate / (1 + SMPLRT_DIV)
-    //     res = mpu6xxx_read_bits(dev, MPU6XXX_RA_CONFIG, MPU6XXX_CFG_DLPF_CFG_BIT, MPU6XXX_CFG_DLPF_CFG_LENGTH, &data);
-    //     if (res != RT_EOK)
-    //     {
-    //         break;
-    //     }
-
-    //     if (data == 0 || data == 7) /* dlpf is disable */
-    //     {
-    //         if (param > 8000)
-    //             data = 0;
-    //         else if (param < 32)
-    //             data = 0xFF;
-    //         else
-    //             data = 8000 / param - 1;
-    //     }
-    //     else /* dlpf is enable */
-    //     {
-    //         if (param > 1000)
-    //             data = 0;
-    //         else if (param < 4)
-    //             data = 0xFF;
-    //         else
-    //             data = 1000 / param - 1;
-    //     }
-    //     res = mpu6xxx_write_reg(dev, MPU6XXX_RA_SMPLRT_DIV, data);
-    //     break;
-    // case MPU6XXX_SLEEP: /* Configure sleep mode */
-    //     res = mpu6xxx_write_bit(dev, MPU6XXX_RA_PWR_MGMT_1, MPU6XXX_PWR1_SLEEP_BIT, param);
-    //     break;
-    // }
+    switch (cmd)
+    {
+    case MLX90393_MAGNETO_GATE:  /* Gyroscope full scale range */
+        mlx90393_set_gain_sel(dev, param);
+        break;
+    case MLX90393_SLEEP: /* Configure sleep mode */
+        mlx90393_wake_on_change(dev,param);
+        break;
+    }
 
     return res;
 }
@@ -956,14 +917,12 @@ static void mlx90393(int argc, char **argv)
         rt_kprintf("         rr <reg>              Set sample rate to var\n");
         rt_kprintf("                               var = [1000 -  4] when dlpf is enable\n");
         rt_kprintf("                               var = [8000 - 32] when dlpf is disable\n");
-        rt_kprintf("         wr <reg> <var>        Set gyro range to var\n");
-        rt_kprintf("                               var = [0 - 3] means [250 - 2000DPS]\n");
-        rt_kprintf("         ar <var>              Set accel range to var\n");
-        rt_kprintf("                               var = [0 - 3] means [2 - 16G]\n");
-        rt_kprintf("         sleep <var>           Set sleep status\n");
-        rt_kprintf("                               var = 0 means disable, = 1 means enable\n");
-        rt_kprintf("         read [num]            read [num] times mlx90393\n");
-        rt_kprintf("                               num default 5\n");
+        rt_kprintf("         set_gain              Set the gain of mlx90393\n");
+        rt_kprintf("         get_gain              Get the gain of mlx90393\n");
+        rt_kprintf("         set_resolution        Set the resolution of mlx90393\n");
+        rt_kprintf("         get_resolution        Get the resolution of mlx90393\n");
+        rt_kprintf("         setup                 Set param of mlx90393\n");
+        rt_kprintf("         readdata              Gets the raw data of mlx90393\n");
         return;
     }
     else

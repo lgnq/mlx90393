@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2022, RT-Thread Development Team
+ * Copyright (c) 2006-2024, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -8,9 +8,9 @@
  * 2022-02-14     lgnq         the first version
  */
 
-#include "sensor_melexis_mlx90393.h"
+#include "melexis_mlx90393_sensor_v1.h"
 
-#define DBG_TAG "sensor.melexis.mlx90393"
+#define DBG_TAG "melexis.mlx90393.sensor.v1"
 #define DBG_LVL DBG_INFO
 #include <rtdbg.h>
 
@@ -25,44 +25,11 @@ static struct mlx90393_device *_mlx90393_init(struct rt_sensor_intf *intf)
 
 static rt_err_t _mlx90393_set_range(rt_sensor_t sensor, rt_int32_t range)
 {
-//    if (sensor->info.type == RT_SENSOR_CLASS_ACCE)
-//    {
-//        rt_uint8_t range_ctr;
-//
-//        if (range < 2000)
-//            range_ctr = MPU6XXX_ACCEL_RANGE_2G;
-//        else if (range < 4000)
-//            range_ctr = MPU6XXX_ACCEL_RANGE_4G;
-//        else if (range < 8000)
-//            range_ctr = MPU6XXX_ACCEL_RANGE_8G;
-//        else
-//            range_ctr = MPU6XXX_ACCEL_RANGE_16G;
-//
-//        LOG_D("acce set range %d", range_ctr);
-//
-//        return mlx90393_set_param(mpu_dev, MPU6XXX_ACCEL_RANGE, range_ctr);
-//    }
-//    else if (sensor->info.type == RT_SENSOR_CLASS_GYRO)
-//    {
-//        rt_uint8_t range_ctr;
-//
-//        if (range < 250000UL)
-//            range_ctr = MPU6XXX_GYRO_RANGE_250DPS;
-//        else if (range < 500000UL)
-//            range_ctr = MPU6XXX_GYRO_RANGE_500DPS;
-//        else if (range < 1000000UL)
-//            range_ctr = MPU6XXX_GYRO_RANGE_1000DPS;
-//        else
-//            range_ctr = MPU6XXX_GYRO_RANGE_2000DPS;
-//
-//        LOG_D("gyro set range %d", range);
-//
-//        return mlx90393_set_param(mpu_dev, MPU6XXX_GYRO_RANGE, range_ctr);
-//    }
+    LOG_D("Setting range is not supported!");
     return RT_EOK;
 }
 
-static rt_err_t _mlx90393_acc_set_mode(rt_sensor_t sensor, rt_uint8_t mode)
+static rt_err_t _mlx90393_mag_set_mode(rt_sensor_t sensor, rt_uint8_t mode)
 {
     if (mode == RT_SENSOR_MODE_POLLING)
     {
@@ -89,7 +56,7 @@ static rt_err_t _mlx90393_set_power(rt_sensor_t sensor, rt_uint8_t power)
         if (ref_count == 0)
         {
             LOG_D("set power down");
-            return mlx90393_set_param(mlx_dev, MPU6XXX_SLEEP, MPU6XXX_SLEEP_ENABLE);
+            return mlx90393_set_param(mlx_dev, MLX90393_SLEEP, MLX90393_SLEEP_ENABLE);
         }
         return RT_EOK;
     }
@@ -97,7 +64,7 @@ static rt_err_t _mlx90393_set_power(rt_sensor_t sensor, rt_uint8_t power)
     {
         ref_count ++;
         LOG_D("set power normal");
-        return mlx90393_set_param(mlx_dev, MPU6XXX_SLEEP, MPU6XXX_SLEEP_DISABLE);
+        return mlx90393_set_param(mlx_dev, MLX90393_SLEEP, MLX90393_SLEEP_DISABLE);
     }
     else
     {
@@ -116,27 +83,27 @@ static rt_err_t _mlx90393_reset(rt_sensor_t sensor)
     mlx90393_reset((struct mlx90393_device *)sensor->parent.user_data);
 }
 
-static rt_size_t _mlx90393_polling_get_data(rt_sensor_t sensor, struct rt_sensor_data *data)
+static RT_SIZE_TYPE _mlx90393_polling_get_data(rt_sensor_t sensor, struct rt_sensor_data *data)
 {
-//    if (sensor->info.type == RT_SENSOR_CLASS_MPS)
-//    {
-//        struct mlx90393_3axes acce;
-//        if (mlx90393_get_accel(mpu_dev, &acce) != RT_EOK)
-//        {
-//            return 0;
-//        }
-//
-//        data->type = RT_SENSOR_CLASS_ACCE;
-//        data->data.acce.x = acce.x;
-//        data->data.acce.y = acce.y;
-//        data->data.acce.z = acce.z;
-//        data->timestamp = rt_sensor_get_ts();
-//    }
+   if (sensor->info.type == RT_SENSOR_CLASS_MAG)
+   {
+       struct mlx90393_txyz txyz;
+       if (mlx90393_get_txyz_raw(mlx_dev, &txyz) != RT_EOK)
+       {
+           return 0;
+       }
 
+       data->type = RT_SENSOR_CLASS_MAG;
+       data->data.mag.x = txyz.x;
+       data->data.mag.y = txyz.y;
+       data->data.mag.z = txyz.z;
+       data->data.temp = txyz.t;
+       data->timestamp = rt_sensor_get_ts();
+   }
     return 1;
 }
 
-static rt_size_t mlx90393_fetch_data(struct rt_sensor_device *sensor, void *buf, rt_size_t len)
+static RT_SIZE_TYPE mlx90393_fetch_data(struct rt_sensor_device *sensor, void *buf, rt_size_t len)
 {
     RT_ASSERT(buf);
 
@@ -164,7 +131,7 @@ static rt_err_t mlx90393_control(struct rt_sensor_device *sensor, int cmd, void 
         result = -RT_EINVAL;
         break;
     case RT_SENSOR_CTRL_SET_MODE:
-        result = _mlx90393_acc_set_mode(sensor, (rt_uint32_t)args & 0xff);
+        result = _mlx90393_mag_set_mode(sensor, (rt_uint32_t)args & 0xff);
         break;
     case RT_SENSOR_CTRL_SET_POWER:
         result = _mlx90393_set_power(sensor, (rt_uint32_t)args & 0xff);

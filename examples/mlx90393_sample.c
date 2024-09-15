@@ -14,11 +14,11 @@
 /* Default configuration, please change according to the actual situation, support i2c and spi device name */
 #define MLX90393_DEVICE_NAME  "i2c2"
 
+
 /* Test function */
 static int mlx90393_test()
 {
     struct mlx90393_device *dev;
-    struct mpu6xxx_3axes accel, gyro;
     int i;
 
     /* Initialize mlx90393, The parameter is RT_NULL, means auto probing for i2c*/
@@ -33,12 +33,9 @@ static int mlx90393_test()
 
     for (i = 0; i < 5; i++)
     {
-        // mpu6xxx_get_accel(dev, &accel);
-        // mpu6xxx_get_gyro(dev, &gyro);
-
-        // rt_kprintf("accel.x = %3d, accel.y = %3d, accel.z = %3d ", accel.x, accel.y, accel.z);
-        // rt_kprintf("gyro.x = %3d gyro.y = %3d, gyro.z = %3d\n", gyro.x, gyro.y, gyro.z);
-
+        struct mlx90393_txyz txyz;
+        mlx90393_get_txyz_raw(dev, &txyz);
+        rt_kprintf("txyz.x = %3d txyz.y = %3d, txyz.z = %3d, txyz.t = %3d\n", txyz.x, txyz.y, txyz.z,txyz.t);
         rt_thread_mdelay(100);
     }
 

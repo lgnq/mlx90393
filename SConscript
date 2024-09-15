@@ -8,8 +8,8 @@ cwd   = GetCurrentDir()
 if GetDepend('PKG_USING_MLX90393'):
     src += Glob('src/mlx90393.c')
 
-if GetDepend('RT_USING_SENSOR'):
-    src += Glob('src/sensor_melexis_mlx90393.c')
+if GetDepend('PKG_MLX90393_USING_SENSOR_V1'):
+    src += Glob('src/melexis_mlx90393_sensor_v1.c')
 
 if GetDepend('PKG_USING_MLX90393_SAMPLE'):
     src += Glob('examples/mlx90393_sample.c')
